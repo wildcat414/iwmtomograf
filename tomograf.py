@@ -4,7 +4,7 @@ import math
 import numpy as np
 np.seterr(over='ignore')
 
-def bresenhamLineValue(x1, y1, x2, y2, pimage):
+def bresenhamLineValue(x1, y1, x2, y2):
     # zmienne pomocnicze
     x = int(x1)
     y = int(y1)
@@ -25,7 +25,7 @@ def bresenhamLineValue(x1, y1, x2, y2, pimage):
         yi = -1
         dy = y1 - y2
     # pierwszy piksel
-    suma += pimage[y,x]
+    suma += imageCircle[y,x]
     dlugosc += 1
     # oś wiodąca X
     if dx > dy:
@@ -42,7 +42,7 @@ def bresenhamLineValue(x1, y1, x2, y2, pimage):
             else:
                 d += bi
                 x += xi
-            suma += pimage[y,x]
+            suma += imageCircle[y,x]
             dlugosc += 1
     # oś wiodąca Y
     else:
@@ -58,13 +58,13 @@ def bresenhamLineValue(x1, y1, x2, y2, pimage):
             else:
                 d += bi
                 y += yi
-            suma += pimage[y,x]
+            suma += imageCircle[y,x]
             dlugosc += 1
     # normalizacja
     srednia = round(float(suma) / dlugosc)
     return srednia
 
-def runEmitter(angleOfEmitter, r, image):
+def calculateEmitterBeamSection(angleOfEmitter):
     if angleOfEmitter >= 0 and angleOfEmitter <= 90:
         # I ćwiartka
         angle = math.radians(angleOfEmitter)
@@ -101,11 +101,12 @@ def runEmitter(angleOfEmitter, r, image):
         Ay = Sy - y
         Bx = Sx + x
         By = Sy + y
-    return bresenhamLineValue(Ax, Ay, Bx, By, image)
+    sectionCoords = (Ax, Ay, Bx, By)
+    return sectionCoords
     
 
-image = cv2.imread("przyklad1.png")
-print("Source image shape (height, width, color): ", image.shape, "\n")
+image = cv2.imread("picture1.jpg")
+#print("Source image shape (height, width, color): ", image.shape, "\n")
 
 imageHeight = image.shape[0]
 imageWidth = image.shape[1]
@@ -114,42 +115,103 @@ imageDepth = image.shape[2] # 24-bitowy kolor
 Sx = math.floor(imageWidth / 2) # image center X coord
 Sy = math.floor(imageHeight / 2) # image center Y coord
 
-R = math.floor((imageHeight - 1) / 2.0) # image circle radius
+r = math.floor((imageHeight - 1) / 2.0) # image circle radius
 
 imageCircle = np.zeros([imageHeight,imageWidth], dtype = np.int32)
 
 for i in range(imageWidth):
     for j in range(imageHeight):
         d = math.sqrt(pow((i - Sx),2) + pow((j - Sy),2))
-        if d <= R:
+        if d <= r:
             # uśrednij do skali szarości
             tavg = math.floor(((image[j,i,0] + image[j,i,1] + image[j,i,2]) / 3))
             imageCircle[j,i] = tavg
 
-numberOfEmitters = 7 # liczba nieparzysta
+numberOfEmitters = 5 # liczba nieparzysta >= 3
 halfNumberOfEmitters = math.floor(numberOfEmitters / 2)
-angleOfMiddleEmitter = 65 # kąt ustawienia emitera centralnego
+starterAngleOfMiddleEmitter = 65 # kąt ustawienia emitera centralnego
 spaceBetweenEmitters = 5 # odstęp kątowy pomiędzy emiterami
+emittersRotationStep = 10 # krok obrotu emiterów w stopniach
 
-emitterAngles = np.zeros(numberOfEmitters, dtype = np.int32)
-angleofCurrentEmitter = angleOfMiddleEmitter
-for i in range(halfNumberOfEmitters - 1, -1, -1):
-    angleofCurrentEmitter -= spaceBetweenEmitters
-    if angleofCurrentEmitter < 0:
-        angleofCurrentEmitter = 360 - angleofCurrentEmitter
-    emitterAngles[i] = angleofCurrentEmitter
-angleofCurrentEmitter = angleOfMiddleEmitter
-for i in range(halfNumberOfEmitters + 1, numberOfEmitters, 1):
-    angleofCurrentEmitter += spaceBetweenEmitters
-    emitterAngles[i] = angleofCurrentEmitter
-emitterAngles[halfNumberOfEmitters] = angleOfMiddleEmitter
+currentAngleOfMiddleEmitter = starterAngleOfMiddleEmitter
+rotationDegreesPassed = 0
+detectorValuesAll = {}
 
-detectorValues = {}
+while True:
+    leftSideEmittersCoordsA = np.zeros(halfNumberOfEmitters, dtype = (np.int32, 2))
+    leftSideEmittersCoordsB = np.zeros(halfNumberOfEmitters, dtype = (np.int32, 2))
+    rightSideEmittersCoordsA = np.zeros(halfNumberOfEmitters, dtype = (np.int32, 2))
+    rightSideEmittersCoordsB = np.zeros(halfNumberOfEmitters, dtype = (np.int32, 2))
+    angleOfSideEmitter = currentAngleOfMiddleEmitter
+    for i in range(halfNumberOfEmitters):
+        # emitery boczne lewe
+        angleOfSideEmitter -= spaceBetweenEmitters
+        if angleOfSideEmitter < 0:
+            angleOfSideEmitter = 360 + angleOfSideEmitter
+        elif angleOfSideEmitter > 360:
+            angleOfSideEmitter = angleOfSideEmitter - 360
+        emitterBeamSection = calculateEmitterBeamSection(angleOfSideEmitter)
+        x1 = emitterBeamSection[0]
+        y1 = emitterBeamSection[1]
+        x2 = emitterBeamSection[2]
+        y2 = emitterBeamSection[3]
+        leftSideEmittersCoordsA[i] = (x1, y1)
+        rightSideEmittersCoordsB[i] = (x2, y2)
+    angleOfSideEmitter = currentAngleOfMiddleEmitter
+    for i in range(halfNumberOfEmitters):
+        # emitery boczne prawe
+        angleOfSideEmitter -= spaceBetweenEmitters
+        if angleOfSideEmitter < 0:
+            angleOfSideEmitter = 360 + angleOfSideEmitter
+        elif angleOfSideEmitter > 360:
+            angleOfSideEmitter = angleOfSideEmitter - 360
+        emitterBeamSection = calculateEmitterBeamSection(angleOfSideEmitter)
+        x1 = emitterBeamSection[0]
+        y1 = emitterBeamSection[1]
+        x2 = emitterBeamSection[2]
+        y2 = emitterBeamSection[3]
+        rightSideEmittersCoordsA[i] = (x1, y1)
+        leftSideEmittersCoordsB[i] = (x2, y2)
 
-for i in range(numberOfEmitters):
-    angleofExaminedEmitter = emitterAngles[i]
-    detectorValues[angleofExaminedEmitter] = runEmitter(angleofExaminedEmitter, R, imageCircle)
+    
+    detectorValuesCurrent = np.zeros(numberOfEmitters, dtype = np.int32)
 
-print("Normalized Detectors\nAngle\tValue")
-for key, value in detectorValues.items():
+    emitterBeamSection = calculateEmitterBeamSection(currentAngleOfMiddleEmitter)
+    mx1 = emitterBeamSection[0]
+    my1 = emitterBeamSection[1]
+    mx2 = emitterBeamSection[2]
+    my2 = emitterBeamSection[3]
+    normalizedValue = bresenhamLineValue(mx1, my1, mx2, my2)
+    detectorValuesCurrent[halfNumberOfEmitters] = normalizedValue # wartość dla centralnego emitera
+
+    for i in range(halfNumberOfEmitters):
+        # emitery boczne lewe
+        lx1 = leftSideEmittersCoordsA[i][0]
+        ly1 = leftSideEmittersCoordsA[i][1]
+        lx2 = leftSideEmittersCoordsB[i][0]
+        ly2 = leftSideEmittersCoordsB[i][1]
+        normalizedValue = bresenhamLineValue(lx1, ly1, lx2, ly2)
+        detectorValuesCurrent[halfNumberOfEmitters - 1 - i] = normalizedValue
+    for i in range(halfNumberOfEmitters):
+        # emitery boczne prawe
+        rx1 = rightSideEmittersCoordsA[i][0]
+        ry1 = rightSideEmittersCoordsA[i][1]
+        rx2 = rightSideEmittersCoordsB[i][0]
+        ry2 = rightSideEmittersCoordsB[i][1]
+        normalizedValue = bresenhamLineValue(rx1, ry1, rx2, ry2)
+        detectorValuesCurrent[halfNumberOfEmitters + 1 + i] = normalizedValue
+
+    detectorValuesAll[currentAngleOfMiddleEmitter] = detectorValuesCurrent
+
+    currentAngleOfMiddleEmitter += emittersRotationStep
+    if currentAngleOfMiddleEmitter > 360:
+        currentAngleOfMiddleEmitter = currentAngleOfMiddleEmitter - 360
+
+    rotationDegreesPassed += emittersRotationStep
+
+    if rotationDegreesPassed >= 360:
+        break
+
+print("Angle\tValues")
+for key, value in detectorValuesAll.items():
     print(str(key) + "\t" + str(value))
