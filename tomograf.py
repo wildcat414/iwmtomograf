@@ -133,6 +133,7 @@ starterAngleOfMiddleEmitter = 65 # kąt ustawienia emitera centralnego
 spaceBetweenEmitters = 5 # odstęp kątowy pomiędzy emiterami
 emittersRotationStep = 10 # krok obrotu emiterów w stopniach
 
+emittersAngularSpread = (numberOfEmitters - 1) * spaceBetweenEmitters # rozpiętość kątowa emiterów
 currentAngleOfMiddleEmitter = starterAngleOfMiddleEmitter
 rotationDegreesPassed = 0
 detectorValuesAll = {}
@@ -212,6 +213,10 @@ while True:
     if rotationDegreesPassed >= 360:
         break
 
-print("Angle\tValues")
+print("Angle of middle emitter and values of detectors")
 for key, value in detectorValuesAll.items():
     print(str(key) + "\t" + str(value))
+
+# Odwrotna transformacja
+# TO DO
+
