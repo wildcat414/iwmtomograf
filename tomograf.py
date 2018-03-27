@@ -4,7 +4,7 @@ import math
 import numpy as np
 np.seterr(over='ignore')
 
-def bresenhamLineScan(x1, y1, x2, y2, pimage):
+def bresenhamLineValue(x1, y1, x2, y2, pimage):
     # zmienne pomocnicze
     x = int(x1)
     y = int(y1)
@@ -20,7 +20,7 @@ def bresenhamLineScan(x1, y1, x2, y2, pimage):
     # ustalenie kierunku rysowania
     if y1 < y2:
         yi = 1
-        dy = dy2 - y1
+        dy = y2 - y1
     else:
         yi = -1
         dy = y1 - y2
@@ -64,6 +64,45 @@ def bresenhamLineScan(x1, y1, x2, y2, pimage):
     srednia = round(float(suma) / dlugosc)
     return srednia
 
+def runEmitter(angleOfEmitter, r, image):
+    if angleOfEmitter >= 0 and angleOfEmitter <= 90:
+        # I ćwiartka
+        angle = math.radians(angleOfEmitter)
+        x = math.floor(r * math.sin(angle))
+        y = math.floor(r * math.cos(angle))
+        Ax = Sx + x
+        Ay = Sy - y
+        Bx = Sx - x
+        By = Sy + y
+    elif angleOfEmitter > 90 and angleOfEmitter <= 180:
+        # II ćwiartka
+        angle = math.radians(angleOfEmitter - 90)
+        x = math.floor(r * math.cos(angle))
+        y = math.floor(r * math.sin(angle))
+        Ax = Sx + x
+        Ay = Sy + y
+        Bx = Sx - x
+        By = Sy - y
+    elif angleOfEmitter > 180 and angleOfEmitter <= 270:
+        # III ćwiartka
+        angle = math.radians(angleOfEmitter - 180)
+        x = math.floor(r * math.sin(angle))
+        y = math.floor(r * math.cos(angle))
+        Ax = Sx - x
+        Ay = Sy + y
+        Bx = Sx + x
+        By = Sy - y
+    elif angleOfEmitter > 270 and angleOfEmitter <= 360:
+        # IV ćwiartka
+        angle = math.radians(angleOfEmitter - 270)
+        x = math.floor(r * math.cos(angle))
+        y = math.floor(r * math.sin(angle))
+        Ax = Sx - x
+        Ay = Sy - y
+        Bx = Sx + x
+        By = Sy + y
+    return bresenhamLineValue(Ax, Ay, Bx, By, image)
+    
 
 image = cv2.imread("przyklad1.png")
 print("Source image shape (height, width, color): ", image.shape, "\n")
@@ -75,7 +114,7 @@ imageDepth = image.shape[2] # 24-bitowy kolor
 Sx = math.floor(imageWidth / 2) # image center X coord
 Sy = math.floor(imageHeight / 2) # image center Y coord
 
-R = math.floor((imageHeight - 1) / 2.0) - 1 # image circle radius
+R = math.floor((imageHeight - 1) / 2.0) # image circle radius
 
 imageCircle = np.zeros([imageHeight,imageWidth], dtype = np.int32)
 
@@ -87,24 +126,30 @@ for i in range(imageWidth):
             tavg = math.floor(((image[j,i,0] + image[j,i,1] + image[j,i,2]) / 3))
             imageCircle[j,i] = tavg
 
-numberOfEmitters = 9 # liczba nieparzysta
+numberOfEmitters = 7 # liczba nieparzysta
 halfNumberOfEmitters = math.floor(numberOfEmitters / 2)
-angleOfEmitters = 65 # kąt ustawienia emiterów
+angleOfMiddleEmitter = 65 # kąt ustawienia emitera centralnego
 spaceBetweenEmitters = 5 # odstęp kątowy pomiędzy emiterami
-detectorValues = np.zeros(numberOfEmitters + 1, dtype = np.int16)
 
-# I ćwiartka
-if angleOfEmitters >= 0 and angleOfEmitters <= 90:
-    angle = math.radians(angleOfEmitters)
-    x = math.floor(R * math.sin(angle))
-    y = math.floor(R * math.sin(angle))
-    Ax = Sx + x
-    Ay = Sy + y
-    Bx = Sx - x
-    By = Sy - y
-    detectorValues[0] = bresenhamLineScan(Ax, Ay, Bx, By, imageCircle)
-    detectorValues[numberOfEmitters] = angleOfEmitters
-    detectorValuesSaved = detectorValues
+emitterAngles = np.zeros(numberOfEmitters, dtype = np.int32)
+angleofCurrentEmitter = angleOfMiddleEmitter
+for i in range(halfNumberOfEmitters - 1, -1, -1):
+    angleofCurrentEmitter -= spaceBetweenEmitters
+    if angleofCurrentEmitter < 0:
+        angleofCurrentEmitter = 360 - angleofCurrentEmitter
+    emitterAngles[i] = angleofCurrentEmitter
+angleofCurrentEmitter = angleOfMiddleEmitter
+for i in range(halfNumberOfEmitters + 1, numberOfEmitters, 1):
+    angleofCurrentEmitter += spaceBetweenEmitters
+    emitterAngles[i] = angleofCurrentEmitter
+emitterAngles[halfNumberOfEmitters] = angleOfMiddleEmitter
 
+detectorValues = {}
 
-print("Detector normalized values (last value is angle):\n", detectorValues)
+for i in range(numberOfEmitters):
+    angleofExaminedEmitter = emitterAngles[i]
+    detectorValues[angleofExaminedEmitter] = runEmitter(angleofExaminedEmitter, R, imageCircle)
+
+print("Normalized Detectors\nAngle\tValue")
+for key, value in detectorValues.items():
+    print(str(key) + "\t" + str(value))
