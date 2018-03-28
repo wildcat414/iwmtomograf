@@ -66,6 +66,7 @@ def bresenhamLineValue(x1, y1, x2, y2):
     return srednia
 
 def calculateEmitterBeamSection(angleOfEmitter):
+    if angleOfEmitter >= 0 and angleOfEmitter <= 90:
         # I ćwiartka
         angle = math.radians(angleOfEmitter)
         x = math.floor(r * math.sin(angle))
@@ -74,8 +75,35 @@ def calculateEmitterBeamSection(angleOfEmitter):
         Ay = Sy - y
         Bx = Sx - x
         By = Sy + y
-        sectionCoords = (Ax, Ay, Bx, By)
-        return sectionCoords
+    elif angleOfEmitter > 90 and angleOfEmitter <= 180:
+        # II ćwiartka
+        angle = math.radians(angleOfEmitter - 90)
+        x = math.floor(r * math.cos(angle))
+        y = math.floor(r * math.sin(angle))
+        Ax = Sx + x
+        Ay = Sy + y
+        Bx = Sx - x
+        By = Sy - y
+    elif angleOfEmitter > 180 and angleOfEmitter <= 270:
+        # III ćwiartka
+        angle = math.radians(angleOfEmitter - 180)
+        x = math.floor(r * math.sin(angle))
+        y = math.floor(r * math.cos(angle))
+        Ax = Sx - x
+        Ay = Sy + y
+        Bx = Sx + x
+        By = Sy - y
+    elif angleOfEmitter > 270 and angleOfEmitter <= 360:
+        # IV ćwiartka
+        angle = math.radians(angleOfEmitter - 270)
+        x = math.floor(r * math.cos(angle))
+        y = math.floor(r * math.sin(angle))
+        Ax = Sx - x
+        Ay = Sy - y
+        Bx = Sx + x
+        By = Sy + y
+    sectionCoords = (Ax, Ay, Bx, By)
+    return sectionCoords
     
 
 image = cv2.imread("picture1.jpg")
@@ -100,10 +128,10 @@ for i in range(imageWidth):
             tavg = math.floor(((image[j,i,0] + image[j,i,1] + image[j,i,2]) / 3))
             imageCircle[j,i] = tavg
 
-numberOfEmitters = 25 # liczba nieparzysta >= 3
+numberOfEmitters = 5 # liczba nieparzysta >= 3
 halfNumberOfEmitters = math.floor(numberOfEmitters / 2)
 starterAngleOfMiddleEmitter = 65 # kąt ustawienia emitera centralnego
-spaceBetweenEmitters = 1 # odstęp kątowy pomiędzy emiterami
+spaceBetweenEmitters = 10 # odstęp kątowy pomiędzy emiterami
 emittersRotationStep = 1 # krok obrotu emiterów w stopniach
 
 emittersAngularSpread = (numberOfEmitters - 1) * spaceBetweenEmitters # rozpiętość kątowa emiterów
@@ -133,9 +161,22 @@ while True:
         x2 = emitterBeamSection[2]
         y2 = emitterBeamSection[3]
         leftSideEmittersCoordsA[i] = (x1, y1)
-        leftSideEmittersCoordsB[i] = (x2, y2)
-        rightSideEmittersCoordsA[i] = (x1, y1)
         rightSideEmittersCoordsB[i] = (x2, y2)
+    angleOfSideEmitter = currentAngleOfMiddleEmitter
+    for i in range(halfNumberOfEmitters):
+        # emitery boczne prawe
+        angleOfSideEmitter -= spaceBetweenEmitters
+        if angleOfSideEmitter < 0:
+            angleOfSideEmitter = 360 + angleOfSideEmitter
+        elif angleOfSideEmitter > 360:
+            angleOfSideEmitter = angleOfSideEmitter - 360
+        emitterBeamSection = calculateEmitterBeamSection(angleOfSideEmitter)
+        x1 = emitterBeamSection[0]
+        y1 = emitterBeamSection[1]
+        x2 = emitterBeamSection[2]
+        y2 = emitterBeamSection[3]
+        rightSideEmittersCoordsA[i] = (x1, y1)
+        leftSideEmittersCoordsB[i] = (x2, y2)
 
     
     detectorValuesCurrent = np.zeros(numberOfEmitters, dtype = np.int32)
@@ -184,8 +225,8 @@ ax1.set_title("Original")
 ax1.imshow(image)
 R = np.zeros((numberOfEmitters,361),dtype='float64')
 for key, value in detectorValuesAll.items():
-    R[:,key] = value[math.floor(len(value)/2)+1]
-
+   for i in range(len(value)):
+     R[:,key] = value;
 '''
 M1 = np.zeros((imageWidth,imageHeight),dtype='int32')
 M2 = np.zeros((imageWidth,imageHeight),dtype='int32')
