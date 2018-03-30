@@ -65,20 +65,23 @@ def bresenhamLineValue(x1, y1, x2, y2):
     srednia = round(float(suma) / dlugosc)
     return srednia
 
-def calculateDiameterSection(angleOfEmitter):
-    angle = math.radians(angleOfEmitter)
-    x = math.floor(r * math.sin(angle))
-    y = math.floor(r * math.cos(angle))
+def calculateDiameterSection(angleParam):
+    angle = math.radians(angleParam)
+    x = math.floor(radius * math.sin(angle))
+    y = math.floor(radius * math.cos(angle))
     Ax = Sx + x
     Ay = Sy - y
     Bx = Sx - x
     By = Sy + y
     sectionCoords = (Ax, Ay, Bx, By)
+    #print("section coords for angle", angleParam, " are ", sectionCoords)
     return sectionCoords
     
 
-image = cv2.imread("picture1.jpg")
-#print("Source image shape (height, width, color): ", image.shape, "\n")
+image = cv2.imread("picture2.jpg")
+imageGray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+#print("Original image shape (height, width, color): ", image.shape, "\n")
+#print("Gray image shape (height, width, color): ", imageGray.shape, "\n")
 
 imageHeight = image.shape[0]
 imageWidth = image.shape[1]
@@ -87,17 +90,15 @@ imageDepth = image.shape[2] # 24-bitowy kolor
 Sx = math.floor(imageWidth / 2) # image center X coord
 Sy = math.floor(imageHeight / 2) # image center Y coord
 
-r = math.floor((imageHeight - 1) / 2.0) # image circle radius
+radius = math.floor((imageHeight - 1) / 2.0) # image circle radius
 
-imageCircle = np.zeros([imageHeight,imageWidth], dtype = np.int32)
+imageCircle = np.zeros([imageHeight, imageWidth], dtype = np.uint8)
 
 for i in range(imageWidth):
     for j in range(imageHeight):
         d = math.sqrt(pow((i - Sx),2) + pow((j - Sy),2))
-        if d <= r:
-            # uśrednij do skali szarości
-            tavg = math.floor(((image[j,i,0] + image[j,i,1] + image[j,i,2]) / 3))
-            imageCircle[j,i] = tavg
+        if d <= radius:
+            imageCircle[j,i] = imageGray[j,i]
 
 
 # PARAMETRY TOMOGRAFU
@@ -193,33 +194,42 @@ while True:
     if rotationDegreesPassed >= 360:
         break
 
+
 # Wypisz kąty skanowania i wartości uzyskane na detektorach
 print("Angle of emitters and values of detectors per phase")
 for key, value in detectorValuesAll.items():
     print(str(key) + "\t" + str(value))
 
-# Utwórz i wyświetl sinogram
-fig, (ax1,ax2) = plt.subplots(1, 2, figsize=(8, 4.5))
-ax1.set_title("Original")
-ax1.imshow(image)
-R = np.zeros((361, numberOfEmitters), dtype='float')
-for key, value in detectorValuesAll.items():
-    R[key, :] = value[math.floor(len(value)/2)+1]
 
-'''
-M1 = np.zeros((imageWidth,imageHeight),dtype='int32')
-M2 = np.zeros((imageWidth,imageHeight),dtype='int32')
-a = 0
+# Utwórz sinogram
+fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(16, 5))
+ax1.set_title("Original image")
+ax1.imshow(imageCircle, cmap='gray', aspect='auto')
+imageSinogram = np.zeros((numberOfEmitters, 361), dtype='float')
 for key, value in detectorValuesAll.items():
- a = math.atan(key)
- cv2.line(M1
-'''
-
+    for n in range(numberOfEmitters):
+        imageSinogram[n, key] = value[n]
 ax2.set_title("Sinogram")
-ax2.set_xlim([0, numberOfEmitters])
-#ax2.xaxis.set_ticks(np.arange(0, numberOfEmitters, 1))
-ax2.set_xlabel("Detector number")
-ax2.set_ylabel("Projection angle (deg)")
-ax2.imshow(R)
-plt.imshow(R, cmap='gray', aspect='auto')
+ax2.set_ylim([0, numberOfEmitters])
+ax2.set_xlabel("Projection angle (deg)")
+ax2.set_ylabel("Detector number")
+ax2.imshow(imageSinogram, cmap='gray', aspect='auto')
+
+
+# Transformacja odwrotna
+imageRecreated = np.zeros((imageWidth, imageHeight, 3), dtype='uint8')
+pixelOverlappingCount = np.zeros((imageWidth, imageHeight, 3), dtype='uint8')
+for key, value in detectorValuesAll.items():
+    tempSection = calculateDiameterSection(key)
+    x1 = tempSection[0]
+    y1 = tempSection[1]
+    x2 = tempSection[2]
+    y2 = tempSection[3]
+    saturation = value[halfNumberOfEmitters]
+    colorVar = (int(saturation), int(saturation), int(saturation))
+    cv2.line(imageRecreated, (x1, y1), (x2, y2), colorVar, 1)
+    #print("angle ", key, "coords ", tempSection)
+
+ax3.set_title("Recreated image")
+ax3.imshow(imageRecreated, cmap='gray', aspect='auto')
 plt.show()
