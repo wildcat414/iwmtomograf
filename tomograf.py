@@ -218,7 +218,7 @@ ax2.imshow(imageSinogram, cmap='gray', aspect='auto')
 
 # Transformacja odwrotna
 imageRecreated = np.zeros((imageWidth, imageHeight, 3), dtype='uint8')
-pixelOverlappingCount = np.zeros((imageWidth, imageHeight, 3), dtype='uint8')
+pixelOverlapping = np.zeros((imageWidth, imageHeight, 1), dtype='uint8')
 for key, value in detectorValuesAll.items():
     tempSection = calculateDiameterSection(key)
     x1 = tempSection[0]
