@@ -121,14 +121,21 @@ def bresenhamLineDraw(x1, y1, x2, y2, value):
             pixelOverlapping[y,x] += 1
 
 def normalizeImageRecreated():
+    maxPixelValue = 0
+    for i in range(imageHeight):
+        for j in range(imageWidth):
+            if imageRecreated[i,j] > maxPixelValue:
+                maxPixelValue = imageRecreated[i,j]
+    pro = maxPixelValue / 255.0
     for i in range(imageHeight):
         for j in range(imageWidth):
             overlappingCount = pixelOverlapping[i,j]
             pixelValue = imageRecreated[i,j]
             if overlappingCount > 1:
-                normalizedPixelValue = round(float(pixelValue) / overlappingCount)
+                normalizedPixelValue = math.floor(float(pixelValue) / overlappingCount)
+                normalizedPixelValue = math.floor(float(normalizedPixelValue) / pro)
             else:
-                normalizedPixelValue = pixelValue            
+                normalizedPixelValue = math.floor(float(pixelValue) / pro)    
             imageRecreated[i,j] = normalizedPixelValue
 
 def calculateDiameterSection(angleParam):
@@ -168,10 +175,10 @@ for i in range(imageWidth):
 
 
 # PARAMETRY TOMOGRAFU
-numberOfEmitters = 15 # liczba nieparzysta >= 3
-starterAngleOfMiddleEmitter = 30 # początkowy kąt ustawienia centralnego emitera
-spaceBetweenEmitters = 1 # odstęp kątowy pomiędzy emiterami
-emittersRotationStep = 1 # krok obrotu emiterów w stopniach
+numberOfEmitters = 19 # liczba nieparzysta >= 3
+starterAngleOfMiddleEmitter = 30 # początkowy kąt ustawienia centralnego emitera, w stopniach
+spaceBetweenEmitters = 1 # odstęp kątowy pomiędzy emiterami, w stopniach
+emittersRotationStep = 1 # krok obrotu emiterów, w stopniach
 
 
 halfNumberOfEmitters = math.floor(numberOfEmitters / 2)
