@@ -65,6 +65,72 @@ def bresenhamLineValue(x1, y1, x2, y2):
     srednia = round(float(suma) / dlugosc)
     return srednia
 
+def bresenhamLineDraw(x1, y1, x2, y2, value):
+    # zmienne pomocnicze
+    x = int(x1)
+    y = int(y1)
+    # ustalenie kierunku rysowania
+    if x1 < x2:
+        xi = 1
+        dx = x2 - x1
+    else:
+        xi = -1
+        dx = x1 - x2
+    # ustalenie kierunku rysowania
+    if y1 < y2:
+        yi = 1
+        dy = y2 - y1
+    else:
+        yi = -1
+        dy = y1 - y2
+    # pierwszy piksel
+    imageRecreated[y,x] += value
+    pixelOverlapping[y,x] += 1
+    # oś wiodąca X
+    if dx > dy:
+        ai = (dy - dx) * 2
+        bi = dy * 2
+        d = bi - dx
+        # pętla po kolejnych x
+        while x != x2:
+            # test współczynnika
+            if d >= 0:
+                x += xi
+                y += yi
+                d += ai
+            else:
+                d += bi
+                x += xi
+                imageRecreated[y,x] += value
+                pixelOverlapping[y,x] += 1
+    # oś wiodąca Y
+    else:
+        ai = (dx - dy) * 2
+        bi = dx * 2
+        d = bi - dy
+        # pętla po kolejnych y
+        while y != y2:
+            if d >= 0:
+                x += xi
+                y += yi
+                d += ai
+            else:
+                d += bi
+                y += yi
+            imageRecreated[y,x] += value
+            pixelOverlapping[y,x] += 1
+
+def normalizeImageRecreated():
+    for i in range(imageHeight):
+        for j in range(imageWidth):
+            overlappingCount = pixelOverlapping[i,j]
+            pixelValue = imageRecreated[i,j]
+            if overlappingCount > 1:
+                normalizedPixelValue = round(float(pixelValue) / overlappingCount)
+            else:
+                normalizedPixelValue = pixelValue            
+            imageRecreated[i,j] = normalizedPixelValue
+
 def calculateDiameterSection(angleParam):
     angle = math.radians(angleParam)
     x = math.floor(radius * math.sin(angle))
@@ -80,8 +146,8 @@ def calculateDiameterSection(angleParam):
 
 image = cv2.imread("picture2.jpg")
 imageGray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-#print("Original image shape (height, width, color): ", image.shape, "\n")
-#print("Gray image shape (height, width, color): ", imageGray.shape, "\n")
+#print("Original image shape (height, width, color): ", image.shape)
+#print("Gray image shape (height, width, color): ", imageGray.shape)
 
 imageHeight = image.shape[0]
 imageWidth = image.shape[1]
@@ -118,6 +184,8 @@ if(emittersAngularSpread > 180):
 currentAngleOfMiddleEmitter = starterAngleOfMiddleEmitter
 rotationDegreesPassed = 0
 detectorValuesAll = {}
+emiterDetectorSectionsAll = set()
+emitterDetectorSectionCurrent = (0, 0, 0, 0, 0) # (Ax, Ay, Bx, By, DetectorValue)
 
 while True:
     leftSideBeamCoordsA = np.zeros(halfNumberOfEmitters, dtype = (np.int32, 2))
@@ -156,7 +224,7 @@ while True:
         leftSideBeamCoordsB[i] = (x2, y2)
 
     
-    detectorValuesCurrent = np.zeros(numberOfEmitters, dtype = np.int32)
+    detectorValuesCurrent = np.zeros(numberOfEmitters, dtype = np.int32) # lista zmierzonych wartości dla detektorów
 
     tempSection = calculateDiameterSection(currentAngleOfMiddleEmitter)
     mx1 = tempSection[0]
@@ -165,6 +233,8 @@ while True:
     my2 = tempSection[3]
     normalizedValue = bresenhamLineValue(mx1, my1, mx2, my2)
     detectorValuesCurrent[halfNumberOfEmitters] = normalizedValue # wartość dla centralnego emitera
+    emitterDetectorSectionCurrent = (mx1, my1, mx2, my2, normalizedValue)
+    emiterDetectorSectionsAll.add(emitterDetectorSectionCurrent)
 
     for i in range(halfNumberOfEmitters):
         # emitery boczne lewe
@@ -174,6 +244,8 @@ while True:
         ly2 = leftSideBeamCoordsB[i][1]
         normalizedValue = bresenhamLineValue(lx1, ly1, lx2, ly2)
         detectorValuesCurrent[halfNumberOfEmitters - 1 - i] = normalizedValue
+        emitterDetectorSectionCurrent = (lx1, ly1, lx2, ly2, normalizedValue)
+        emiterDetectorSectionsAll.add(emitterDetectorSectionCurrent)
     for i in range(halfNumberOfEmitters):
         # emitery boczne prawe
         rx1 = rightSideBeamCoordsA[i][0]
@@ -182,9 +254,11 @@ while True:
         ry2 = rightSideBeamCoordsB[i][1]
         normalizedValue = bresenhamLineValue(rx1, ry1, rx2, ry2)
         detectorValuesCurrent[halfNumberOfEmitters + 1 + i] = normalizedValue
+        emitterDetectorSectionCurrent = (rx1, ry1, rx2, ry2, normalizedValue)
+        emiterDetectorSectionsAll.add(emitterDetectorSectionCurrent)
 
     detectorValuesAll[currentAngleOfMiddleEmitter] = detectorValuesCurrent
-
+    
     currentAngleOfMiddleEmitter += emittersRotationStep
     if currentAngleOfMiddleEmitter > 360:
         currentAngleOfMiddleEmitter = currentAngleOfMiddleEmitter - 360
@@ -217,18 +291,17 @@ ax2.imshow(imageSinogram, cmap='gray', aspect='auto')
 
 
 # Transformacja odwrotna
-imageRecreated = np.zeros((imageWidth, imageHeight, 3), dtype='uint8')
-pixelOverlapping = np.zeros((imageWidth, imageHeight, 1), dtype='uint8')
-for key, value in detectorValuesAll.items():
-    tempSection = calculateDiameterSection(key)
-    x1 = tempSection[0]
-    y1 = tempSection[1]
-    x2 = tempSection[2]
-    y2 = tempSection[3]
-    saturation = value[halfNumberOfEmitters]
-    colorVar = (int(saturation), int(saturation), int(saturation))
-    cv2.line(imageRecreated, (x1, y1), (x2, y2), colorVar, 1)
-    #print("angle ", key, "coords ", tempSection)
+imageRecreated = np.zeros((imageHeight, imageWidth), dtype='uint8')
+pixelOverlapping = np.zeros((imageHeight, imageWidth), dtype='uint8')
+for elem in emiterDetectorSectionsAll:
+    Ax = elem[0]
+    Ay = elem[1]
+    Bx = elem[2]
+    By = elem[3]
+    grayValue = elem[4]
+    bresenhamLineDraw(Ax, Ay, Bx, By, grayValue)    
+normalizeImageRecreated()
+
 
 ax3.set_title("Recreated image")
 ax3.imshow(imageRecreated, cmap='gray', aspect='auto')
