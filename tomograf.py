@@ -84,7 +84,7 @@ def bresenhamLineDraw(x1, y1, x2, y2, value):
         yi = -1
         dy = y1 - y2
     # pierwszy piksel
-    imageRecreated[y,x] += value
+    imageReconstructed[y,x] += value
     pixelOverlapping[y,x] += 1
     # oś wiodąca X
     if dx > dy:
@@ -101,7 +101,7 @@ def bresenhamLineDraw(x1, y1, x2, y2, value):
             else:
                 d += bi
                 x += xi
-                imageRecreated[y,x] += value
+                imageReconstructed[y,x] += value
                 pixelOverlapping[y,x] += 1
     # oś wiodąca Y
     else:
@@ -117,26 +117,24 @@ def bresenhamLineDraw(x1, y1, x2, y2, value):
             else:
                 d += bi
                 y += yi
-            imageRecreated[y,x] += value
+            imageReconstructed[y,x] += value
             pixelOverlapping[y,x] += 1
 
-def normalizeImageRecreated():
-    maxPixelValue = 0
-    for i in range(imageHeight):
-        for j in range(imageWidth):
-            if imageRecreated[i,j] > maxPixelValue:
-                maxPixelValue = imageRecreated[i,j]
-    pro = maxPixelValue / 255.0
+def normalizeimageReconstructed():
     for i in range(imageHeight):
         for j in range(imageWidth):
             overlappingCount = pixelOverlapping[i,j]
-            pixelValue = imageRecreated[i,j]
+            pixelValue = imageReconstructed[i,j]
             if overlappingCount > 1:
                 normalizedPixelValue = math.floor(float(pixelValue) / overlappingCount)
-                normalizedPixelValue = math.floor(float(normalizedPixelValue) / pro)
             else:
-                normalizedPixelValue = math.floor(float(pixelValue) / pro)    
-            imageRecreated[i,j] = normalizedPixelValue
+                normalizedPixelValue = pixelValue
+            imageReconstructed[i,j] = normalizedPixelValue
+    maxPixelValue = imageReconstructed.max()
+    dzielnik = maxPixelValue / 255.0
+    for i in range(imageHeight):
+        for j in range(imageWidth):
+            imageReconstructed[i,j] = math.floor(float(imageReconstructed[i,j]) / dzielnik)
 
 def calculateDiameterSection(angleParam):
     angle = math.radians(angleParam)
@@ -149,16 +147,17 @@ def calculateDiameterSection(angleParam):
     sectionCoords = (Ax, Ay, Bx, By)
     #print("section coords for angle", angleParam, " are ", sectionCoords)
     return sectionCoords
-    
 
-image = cv2.imread("picture2.jpg")
+print("Reading source image...")
+
+image = cv2.imread("picture2.jpg") # obraz powinien być kwadratowy
 imageGray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 #print("Original image shape (height, width, color): ", image.shape)
 #print("Gray image shape (height, width, color): ", imageGray.shape)
 
 imageHeight = image.shape[0]
 imageWidth = image.shape[1]
-imageDepth = image.shape[2] # 24-bitowy kolor
+imageDepth = image.shape[2]
 
 Sx = math.floor(imageWidth / 2) # image center X coord
 Sy = math.floor(imageHeight / 2) # image center Y coord
@@ -166,6 +165,7 @@ Sy = math.floor(imageHeight / 2) # image center Y coord
 radius = math.floor((imageHeight - 1) / 2.0) # image circle radius
 
 imageCircle = np.zeros([imageHeight, imageWidth], dtype = np.uint8)
+print("Creating circle image from source image...")
 
 for i in range(imageWidth):
     for j in range(imageHeight):
@@ -175,8 +175,7 @@ for i in range(imageWidth):
 
 
 # PARAMETRY TOMOGRAFU
-numberOfEmitters = 19 # liczba nieparzysta >= 3
-starterAngleOfMiddleEmitter = 30 # początkowy kąt ustawienia centralnego emitera, w stopniach
+numberOfEmitters = 95 # liczba nieparzysta >= 3
 spaceBetweenEmitters = 1 # odstęp kątowy pomiędzy emiterami, w stopniach
 emittersRotationStep = 1 # krok obrotu emiterów, w stopniach
 
@@ -184,15 +183,14 @@ emittersRotationStep = 1 # krok obrotu emiterów, w stopniach
 halfNumberOfEmitters = math.floor(numberOfEmitters / 2)
 emittersAngularSpread = (numberOfEmitters - 1) * spaceBetweenEmitters # rozpiętość kątowa emiterów
 
-if(emittersAngularSpread > 180):
-	print("Rozpiętość kątowa emiterów przekracza 180 stopni!")
-	quit()
 
-currentAngleOfMiddleEmitter = starterAngleOfMiddleEmitter
+currentAngleOfMiddleEmitter = 0 # początkowy kąt ustawienia centralnego emitera, w stopniach
 rotationDegreesPassed = 0
 detectorValuesAll = {}
 emiterDetectorSectionsAll = set()
 emitterDetectorSectionCurrent = (0, 0, 0, 0, 0) # (Ax, Ay, Bx, By, DetectorValue)
+
+print("Examinaiton of circle image started. Emitter rotation in progress...")
 
 while True:
     leftSideBeamCoordsA = np.zeros(halfNumberOfEmitters, dtype = (np.int32, 2))
@@ -272,21 +270,23 @@ while True:
 
     rotationDegreesPassed += emittersRotationStep
 
-    if rotationDegreesPassed >= 360:
+    if rotationDegreesPassed >= 180:
         break
 
-
+'''
 # Wypisz kąty skanowania i wartości uzyskane na detektorach
-print("Angle of emitters and values of detectors per phase")
+print("Angle of emitters arrangement and values measured by detectors:")
 for key, value in detectorValuesAll.items():
     print(str(key) + "\t" + str(value))
+'''
 
+print("Creating sinogram...")
 
 # Utwórz sinogram
 fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(16, 5))
 ax1.set_title("Original image")
 ax1.imshow(imageCircle, cmap='gray', aspect='auto')
-imageSinogram = np.zeros((numberOfEmitters, 361), dtype='float')
+imageSinogram = np.zeros((numberOfEmitters, 181), dtype='float')
 for key, value in detectorValuesAll.items():
     for n in range(numberOfEmitters):
         imageSinogram[n, key] = value[n]
@@ -297,9 +297,11 @@ ax2.set_ylabel("Detector number")
 ax2.imshow(imageSinogram, cmap='gray', aspect='auto')
 
 
+print("Generating reconstructed image based on sinogram data...")
+
 # Transformacja odwrotna
-imageRecreated = np.zeros((imageHeight, imageWidth), dtype='uint8')
-pixelOverlapping = np.zeros((imageHeight, imageWidth), dtype='uint8')
+imageReconstructed = np.zeros((imageHeight, imageWidth), dtype='uint32')
+pixelOverlapping = np.zeros((imageHeight, imageWidth), dtype='uint32')
 for elem in emiterDetectorSectionsAll:
     Ax = elem[0]
     Ay = elem[1]
@@ -307,9 +309,10 @@ for elem in emiterDetectorSectionsAll:
     By = elem[3]
     grayValue = elem[4]
     bresenhamLineDraw(Ax, Ay, Bx, By, grayValue)    
-normalizeImageRecreated()
+normalizeimageReconstructed()
 
+print("Ready!")
 
 ax3.set_title("Recreated image")
-ax3.imshow(imageRecreated, cmap='gray', aspect='auto')
+ax3.imshow(imageReconstructed, cmap='gray', aspect='auto')
 plt.show()
