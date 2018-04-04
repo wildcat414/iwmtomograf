@@ -66,34 +66,27 @@ def bresenhamLineValue(x1, y1, x2, y2):
     return srednia
 
 def bresenhamLineDraw(x1, y1, x2, y2, value):
-    # zmienne pomocnicze
     x = int(x1)
     y = int(y1)
-    # ustalenie kierunku rysowania
     if x1 < x2:
         xi = 1
         dx = x2 - x1
     else:
         xi = -1
         dx = x1 - x2
-    # ustalenie kierunku rysowania
     if y1 < y2:
         yi = 1
         dy = y2 - y1
     else:
         yi = -1
         dy = y1 - y2
-    # pierwszy piksel
     imageReconstructed[y,x] += value
     pixelOverlapping[y,x] += 1
-    # oś wiodąca X
     if dx > dy:
         ai = (dy - dx) * 2
         bi = dy * 2
         d = bi - dx
-        # pętla po kolejnych x
         while x != x2:
-            # test współczynnika
             if d >= 0:
                 x += xi
                 y += yi
@@ -103,12 +96,10 @@ def bresenhamLineDraw(x1, y1, x2, y2, value):
                 x += xi
                 imageReconstructed[y,x] += value
                 pixelOverlapping[y,x] += 1
-    # oś wiodąca Y
     else:
         ai = (dx - dy) * 2
         bi = dx * 2
         d = bi - dy
-        # pętla po kolejnych y
         while y != y2:
             if d >= 0:
                 x += xi
