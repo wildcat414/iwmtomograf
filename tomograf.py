@@ -166,7 +166,7 @@ for i in range(imageWidth):
 
 
 # PARAMETRY TOMOGRAFU
-numberOfEmitters = 95 # liczba nieparzysta >= 3
+numberOfEmitters = 75 # liczba nieparzysta >= 3
 spaceBetweenEmitters = 1 # odstęp kątowy pomiędzy emiterami, w stopniach
 emittersRotationStep = 1 # krok obrotu emiterów, w stopniach
 
@@ -291,8 +291,8 @@ ax2.imshow(imageSinogram, cmap='gray', aspect='auto')
 print("Generating reconstructed image based on sinogram data...")
 
 # Transformacja odwrotna
-imageReconstructed = np.zeros((imageHeight, imageWidth), dtype='uint32')
-pixelOverlapping = np.zeros((imageHeight, imageWidth), dtype='uint32')
+imageReconstructed = np.zeros((imageHeight, imageWidth), dtype=np.int32)
+pixelOverlapping = np.zeros((imageHeight, imageWidth), dtype=np.int32)
 for elem in emiterDetectorSectionsAll:
     Ax = elem[0]
     Ay = elem[1]
@@ -305,5 +305,11 @@ normalizeimageReconstructed()
 print("Ready!")
 
 ax3.set_title("Recreated image")
-ax3.imshow(imageReconstructed, cmap='gray', aspect='auto')
+cv2.imwrite('abc.jpg',imageReconstructed)
+img = cv2.imread('abc.jpg',0)
+blur = cv2.blur(img,(3,3))
+equ = cv2.equalizeHist(blur)
+clahe = cv2.createCLAHE(clipLimit=2.0,tileGridSize=(8,8))
+cl1 = clahe.apply(equ)
+ax3.imshow(cl1, cmap='gray', aspect='auto')
 plt.show()
